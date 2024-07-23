@@ -6,7 +6,7 @@ Your company is building the object-oriented system to run that trading.
 You have been assigned to build part of the core object model for a limited phase 1.
 
 This source code will -
-- For a given stock,
+- For a given stock:
     - calculate the dividend yield given any price as input
     - calculate the P/E Ratio given any price as input
     - record a trade, with timestamp, quantity of shares, buy or sell indicator and price
@@ -14,7 +14,6 @@ This source code will -
 - Calculate the GBCE All Share Index using the geometric mean of prices for all stocks
 
 Constraints & Notes:
-
 1.	No database or GUI, all data is held in memory.
 2.	Formulas and data provided are simplified representations for the purpose of this exercise.
 
@@ -32,9 +31,6 @@ Requirements:
 - Python 3.10, Python 3.7 or higher should also work
 - Tested on Windows11
 
-INSTALLATION:
-
-
 Run:
 Please ensure:
 1. gbce_sample_data.csv file contains data as specified in current gbce_sample_data.csv file,
@@ -42,8 +38,7 @@ Please ensure:
 2. StocksDBFile.txt contains trade records, we operate on this while recording trade, calculating
     volume weighted stock price and GBCE all share index. If this file is not present,
     the code automatically handles it by creating one. The file is therefore OPTIONAL, NOT NECESSARY !!
-3. Ensure main.py is present inside SuperSimpleStockMarket folder and then run as
-
+3. Ensure main.py is present and then run as:
 ```
 python main.py
 ```
@@ -63,8 +58,7 @@ Select a number for corresponding operation:
 ```
 
 Tests:
-To test the assignment using unittest, please execute test.py file as
-
+To test the assignment using unittest, please execute test.py file as:
 ```
 python test.py
 ```
