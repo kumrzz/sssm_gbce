@@ -1,4 +1,4 @@
-# Super Simple Stock Market : Global Beverage Corporation Exchange#
+# Super Simple Stock Market : Global Beverage Corporation Exchange #
 
 Description:
 The Global Beverage Corporation Exchange is a new stock market trading in drinks companies.
