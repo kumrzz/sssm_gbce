@@ -4,19 +4,22 @@ from models import StockModel, TradeModel
 
 
 class FileDatabase:
+    """
+    File operations: i/o
+    """
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "StocksDBFile.txt")
     print("'database' filepath:", file_path)
     trading_details = {}
 
     @classmethod
-    def write_to_file(cls, trade_details={}):
+    def write_activity_to_file(cls, trade_details={}):
         cls.trading_details = trade_details
         with open(cls.file_path, 'wb') as db:
             db.write(pickle.dumps(cls.trading_details))
             print("trade activity now written to File!")
 
     @classmethod
-    def read_from_file(cls):
+    def read_activity_from_file(cls):
         try:
             with open(cls.file_path, 'rb') as db:
                 read_db = db.read()
@@ -24,24 +27,10 @@ class FileDatabase:
                 # print("Trade records read as:", cls.trading_details)
             return cls.trading_details
         except FileNotFoundError:
-            FileDatabase().write_to_file()
+            FileDatabase().write_activity_to_file()
             print("No record present in file: Please add trade records!")
             return cls.trading_details
-
-
-class StockService:
-    config_stocks_list = {}
-
-    @classmethod
-    def stock_config_operations(cls, stock_symbol, stock_type, last_dividend, fixed_dividend=0, par_value=0):
-        stock_model_obj = StockModel()
-        stock_model_obj.set_stock_symbol(stock_symbol)
-        stock_model_obj.set_stock_type(stock_type)
-        stock_model_obj.set_last_dividend(last_dividend)
-        stock_model_obj.set_fixed_dividend(fixed_dividend)
-        stock_model_obj.set_par_value(par_value)
-        cls.config_stocks_list[stock_symbol] = stock_model_obj
-
+    
     def load_stock_config_from_file(filename= "gbce_sample_data.csv"):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         config_file = os.path.join(script_dir, filename)
@@ -56,12 +45,29 @@ class StockService:
             stock_details_list = stock_details_list[1:]
         stock_details_list = [[row[0],row[1],float(row[2]),float(row[3]),float(row[4])] for row in stock_details_list]
         return stock_details_list
+
+
+class StockService:
+    """
+    settings calculations and operations on individual stocks
+    """
+    config_stocks_list = {}
+
+    @classmethod
+    def stock_config_operations(cls, stock_symbol, stock_type, last_dividend, fixed_dividend=0, par_value=0):
+        stock_model_obj = StockModel()
+        stock_model_obj.set_stock_symbol(stock_symbol)
+        stock_model_obj.set_stock_type(stock_type)
+        stock_model_obj.set_last_dividend(last_dividend)
+        stock_model_obj.set_fixed_dividend(fixed_dividend)
+        stock_model_obj.set_par_value(par_value)
+        cls.config_stocks_list[stock_symbol] = stock_model_obj
     
     @staticmethod
     def volume_weighted_stock_price(symbol: str, interval_in_mins = 5) -> tuple[str, float]:
         try:
             # reading file's data to collect all the trade records until now
-            trading_details = FileDatabase().read_from_file()
+            trading_details = FileDatabase().read_activity_from_file()
             # filtering out the data, gives data for the stock symbol we need
             symbol_trade_details = trading_details[symbol]
 
@@ -132,6 +138,9 @@ class StockService:
 
 
 class TradeService:
+    """
+    Records trades (activity) on stocks
+    """
 
     @staticmethod
     def record_trade(symbol, quantity, buy_or_sell, trade_price, timestamp=datetime.now()) -> str:
@@ -141,7 +150,7 @@ class TradeService:
         try:
             # read from file/db
             file_obj = FileDatabase()
-            trading_details = file_obj.read_from_file()
+            trading_details = file_obj.read_activity_from_file()
 
             trade_model_obj = TradeModel()
             trade_model_obj.set_quantity_shares(quantity)
@@ -153,7 +162,7 @@ class TradeService:
             trading_details[symbol][timestamp] = trade_model_obj
 
             # write to file/db
-            file_obj.write_to_file(trading_details)
+            file_obj.write_activity_to_file(trading_details)
             return "Success"
 
         except Exception as Except:
@@ -161,11 +170,14 @@ class TradeService:
             return "Failure"
 
 class GBCEIndex:
+    """
+    Calculations on the Global Beverage Corporation Exchange Index
+    """
     trading_details = {}
 
     @classmethod
     def all_share_index(cls):
-        cls.trading_details = FileDatabase().read_from_file()
+        cls.trading_details = FileDatabase().read_activity_from_file()
         if not cls.trading_details:
             print("Empty records, no trade done!")
             return None

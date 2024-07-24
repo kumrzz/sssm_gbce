@@ -1,4 +1,4 @@
-from services import GBCEIndex, StockService, TradeService
+from services import GBCEIndex, StockService, TradeService, FileDatabase
 
 def input_operations():
     """Input/Output Interaction
@@ -8,7 +8,7 @@ def input_operations():
     3. View/Check the output
     """
     # Populate DB
-    stock_details_list = StockService.load_stock_config_from_file()
+    stock_details_list = FileDatabase.load_stock_config_from_file()
     for stock in stock_details_list:
         StockService().stock_config_operations(*stock)
     config_stocks_list = [row[0] for row in stock_details_list]
@@ -46,7 +46,7 @@ def input_operations():
                 stock_price = float(input(enter_stock_price))
                 status, dividend_yield = StockService.calculate_dividend_yield(stock_symbol, stock_price)
                 if status == success:
-                    print(f"Dividend yield for {stock_symbol} at {stock_price} is: {dividend_yield}")
+                    print(f"Dividend yield for {stock_symbol} at {stock_price} is:  {dividend_yield}")
                 else:
                     print(status)
                     print(re_enter)
@@ -95,7 +95,7 @@ def input_operations():
                     print("GBCE All Share Index:", gbce)
 
             else:
-                print("Please try again, your selection of numbers may not be one of the expected!!!")
+                print("Please try again, your selection of numbers may not be one of those expected!!!")
         except ValueError as VE:
             print(VE)
             print(re_enter)

@@ -11,7 +11,7 @@ class TestBaseCases(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):        
-        stock_details_list = StockService.load_stock_config_from_file()
+        stock_details_list = FileDatabase.load_stock_config_from_file()
         for stock in stock_details_list:
             StockService().stock_config_operations(*stock)
         print("local pickled DB file populated!!")
@@ -26,7 +26,7 @@ class TestBaseCases(unittest.TestCase):
 
     def test_volume_weighted_stock_price(self):
         print('\n')
-        trading_details = FileDatabase.read_from_file()
+        trading_details = FileDatabase.read_activity_from_file()
         for symbol in self.symbols:
             if symbol in trading_details:
                 status, vwsp = StockService.volume_weighted_stock_price(symbol)

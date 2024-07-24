@@ -31,6 +31,10 @@ Requirements:
 - Python 3.10, Python 3.7 or higher should also work
 - Tested on Windows11
 
+Setup:
+(in git bash:)
+git clone https://github.com/kumrzz/sssm_gbce.git
+
 Run:
 Please ensure:
 1. gbce_sample_data.csv file contains data as specified in current gbce_sample_data.csv file,
@@ -38,7 +42,7 @@ Please ensure:
 2. StocksDBFile.txt contains trade records, we operate on this while recording trade, calculating
     volume weighted stock price and GBCE all share index. If this file is not present,
     the code automatically handles it by creating one. The file is therefore OPTIONAL, NOT NECESSARY !!
-3. Ensure main.py is present and then run as:
+3. Ensure main.py is present (folder: sssm_gbce if using git clone as in the setup step) and then run as:
 ```
 python main.py
 ```
