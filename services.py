@@ -1,14 +1,20 @@
-import os, csv, pickle
+import os, sys, csv, pickle
 from datetime import datetime, timedelta
-from models import StockModel, TradeModel
+from models import StockModel, TradeModel, GBCEIndexModel
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# logging.basicConfig(filename='log_filename.txt', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+local_db_file = "StocksDBFile.txt"
+stock_config_file = "gbce_sample_data.csv"
 
 
 class FileDatabase:
     """
     File operations: i/o
     """
-    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "StocksDBFile.txt")
-    print("'database' filepath:", file_path)
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), local_db_file)
+    logging.debug("'database' filepath:\n" + file_path)
     trading_details = {}
 
     @classmethod
@@ -16,7 +22,7 @@ class FileDatabase:
         cls.trading_details = trade_details
         with open(cls.file_path, 'wb') as db:
             db.write(pickle.dumps(cls.trading_details))
-            print("trade activity now written to File!")
+            logging.info('trade activity now written to local File!')
 
     @classmethod
     def read_activity_from_file(cls):
@@ -28,17 +34,18 @@ class FileDatabase:
             return cls.trading_details
         except FileNotFoundError:
             FileDatabase().write_activity_to_file()
-            print("No record present in file: Please add trade records!")
+            logging.warning("No record present in file: Please add trade records!")
             return cls.trading_details
     
-    def load_stock_config_from_file(filename= "gbce_sample_data.csv"):
+    @staticmethod
+    def load_stock_config_from_file(filename= stock_config_file):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         config_file = os.path.join(script_dir, filename)
         if not os.path.isfile(config_file):
-            print("file not found, config will contain zero stocks")
+            logging.warning("file not found, config will contain zero stocks")
             return []
         if os.stat(config_file).st_size == 0:
-            print("file empty, config will contain zero stocks")
+            logging.warning("file empty, config will contain zero stocks")
             return []        
         stock_details_list = list(csv.reader(open(config_file)))
         if stock_details_list[0][-1] == 'par_value':  # The first row contains headers
@@ -49,24 +56,27 @@ class FileDatabase:
 
 class StockService:
     """
-    settings calculations and operations on individual stocks
+    settings calculations and operations on stocks
     """
     config_stocks_list = {}
 
     @classmethod
     def stock_config_operations(cls, stock_symbol, stock_type, last_dividend, fixed_dividend=0, par_value=0):
         stock_model_obj = StockModel()
+        gbce_index_model_obj = GBCEIndexModel()
         stock_model_obj.set_stock_symbol(stock_symbol)
+        gbce_index_model_obj.index_constituents.add(stock_symbol)
         stock_model_obj.set_stock_type(stock_type)
         stock_model_obj.set_last_dividend(last_dividend)
         stock_model_obj.set_fixed_dividend(fixed_dividend)
         stock_model_obj.set_par_value(par_value)
         cls.config_stocks_list[stock_symbol] = stock_model_obj
+
     
     @staticmethod
     def volume_weighted_stock_price(symbol: str, interval_in_mins = 5) -> tuple[str, float]:
         try:
-            # reading file's data to collect all the trade records until now
+            # reading file data to collect all the trade records until now
             trading_details = FileDatabase().read_activity_from_file()
             # filtering out the data, gives data for the stock symbol we need
             symbol_trade_details = trading_details[symbol]
@@ -82,20 +92,19 @@ class StockService:
             vol_wt_price = share_quantity_trade_sum / total_quantity_shares
             return "Success", vol_wt_price
         except KeyError as KE:
-            # No trade is done for provided stock symbol
-            print(KE)
-            print("Trade record for given stock symbol has never been recorded! Please add records ... ")
+            # No trades yet for provided stock symbol
+            logging.warning(f"Trades for given stock symbol: {KE} have never been recorded! Please add records ... ")
             return "Failure", 0.0
         except ZeroDivisionError:
             # Either no trade is done in last 5 mins or calculation makes it 0.0.
-            print(f"Either no trades located for {symbol} , or calculation results in 0.0 !!")
+            logging.warning(f"Either no trades located for {symbol} , or calculation results in 0.0 !!")
             vol_wt_price = 0
             return "Success", vol_wt_price
 
     @classmethod
     def calculate_dividend_yield(cls, stock_symbol: str, price: float) -> tuple[str, int]:
         if price < 0:
-            print("Re-enter price, price can not be less or equal to zero!")
+            logging.warning("Re-enter price, price can not be less or equal to zero!")
             return "Failure", 0
 
         # check if stock_symbol is present in list of stocks
@@ -115,26 +124,28 @@ class StockService:
                     dividend_yield = (fixed_dividend * par_value) / price
                 return "Success", dividend_yield
             except ZeroDivisionError as ZDE:
-                print(ZDE)
+                logging.warning(ZDE)
                 return "Failure", 0
         else:
-            print("Stock is not present in Memory, please enter stock that's already in memory!")
+            logging.warning("Stock is not present in Memory, please enter stock that's already in memory!")
             return "Failure", 0
     
     @classmethod
     def calculate_pe_ratio(cls, stock_symbol: str, price: float):
-
         # calculate dividend for given price and stock
-        status, dividend = cls.calculate_dividend_yield(stock_symbol, price)
-        if status == "Failure":
+        try:
+            stock_detail = cls.config_stocks_list[stock_symbol]
+        except KeyError as KE:
+            logging.warning(KE)
             return "Failure", 0
-        else:
-            try:
-                pe_ratio = price / dividend
-            except ZeroDivisionError as ZDE:
-                # considering dividend can be zero resulting in pe_ratio as zero
-                pe_ratio = 0
-            return "Success", pe_ratio
+        last_dividend = stock_detail.get_last_dividend()
+        try:
+            # can't use dividend yield here as that is already a fraction of the price !
+            pe_ratio = price / last_dividend
+        except ZeroDivisionError as ZDE:
+            # dividend can be zero, resulting in pe_ratio of zero
+            pe_ratio = 0
+        return "Success", pe_ratio
 
 
 class TradeService:
@@ -145,7 +156,7 @@ class TradeService:
     @staticmethod
     def record_trade(symbol, quantity, buy_or_sell, trade_price, timestamp=datetime.now()) -> str:
         if symbol not in StockService.config_stocks_list:
-            print("Stock symbol is not present in the excel file provided!")
+            logging.warning(f"Stock symbol {symbol} not present in index config file({stock_config_file}) provided!")
             return "Failure"
         try:
             # read from file/db
@@ -166,7 +177,7 @@ class TradeService:
             return "Success"
 
         except Exception as Except:
-            print(Except)
+            logging.warning(Except)
             return "Failure"
 
 class GBCEIndex:
@@ -179,10 +190,11 @@ class GBCEIndex:
     def all_share_index(cls):
         cls.trading_details = FileDatabase().read_activity_from_file()
         if not cls.trading_details:
-            print("Empty records, no trade done!")
+            logging.warning("Empty records, no trade done!")
             return None
         total_stock_count = 0
         total_price = 0
+
         for stock in cls.trading_details:
             for time, traded_share in cls.trading_details[stock].items():
                 total_stock_count += traded_share.get_quantity_shares()

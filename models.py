@@ -72,3 +72,10 @@ class TradeModel:
 
     def get_timestamp(self) -> datetime:
         return self.timestamp
+
+class GBCEIndexModel:
+    """
+    Not in use quite yet
+    """
+    def __init__(self):
+        self.index_constituents = set()
