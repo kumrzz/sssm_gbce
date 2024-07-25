@@ -52,7 +52,7 @@ class TestBaseCases(unittest.TestCase):
 
     def test_volume_weighted_stock_price(self):
         print('\n')
-        trading_details = FileDatabase.read_activity_from_file()
+        trading_details = FileDatabase.read_activity_from_localmem()
         for symbol in self.symbols:
             if symbol in trading_details:
                 status, vwsp = StockService.volume_weighted_stock_price(symbol)
@@ -129,10 +129,10 @@ if __name__ == '__main__':
         suite.addTest(TestHardcodedCases('test_pe_ratio_calc_manualinputs'))
         return suite
 
-    stock_details_list = FileDatabase.load_stock_config_from_file()
+    stock_details_list = FileDatabase.load_stock_metadata_from_file()
     for stock in stock_details_list:
         StockService().stock_config_operations(*stock)
-    print("\nlocal pickled DB file populated!")
+    print("\nStock config/metadata populated from file for testing!")
     
     custom_suite = suite()
     runner = unittest.TextTestRunner()

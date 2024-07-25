@@ -1,44 +1,35 @@
-import os, sys, csv, pickle
+import os, csv, pickle, sqlite3
 from datetime import datetime, timedelta
 from models import StockModel, TradeModel, GBCEIndexModel
 import logging
+from typing import List
+
+
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 # logging.basicConfig(filename='log_filename.txt', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
-local_db_file = "StocksDBFile.txt"
 stock_config_file = "gbce_sample_data.csv"
+
+db_conn = sqlite3.connect(':memory:')
+with db_conn:
+    cur = db_conn.cursor()
+    try:
+        cur.execute("DROP TABLE IF EXISTS data")  # cleaning up
+        cur.execute("CREATE TABLE data(i)")
+    except Exception as why:
+        logging.debug(why)
 
 
 class FileDatabase:
     """
-    File operations: i/o
-    """
-    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), local_db_file)
-    logging.debug("'database' filepath:\n" + file_path)
+    memory(in-mem sqlite) and necessary file operations: i/o 
+    """    
     trading_details = {}
 
-    @classmethod
-    def write_activity_to_file(cls, trade_details={}):
-        cls.trading_details = trade_details
-        with open(cls.file_path, 'wb') as db:
-            db.write(pickle.dumps(cls.trading_details))
-            logging.info('trade activity now written to local File!')
-
-    @classmethod
-    def read_activity_from_file(cls):
-        try:
-            with open(cls.file_path, 'rb') as db:
-                read_db = db.read()
-                cls.trading_details = pickle.loads(read_db)
-                # print("Trade records read as:", cls.trading_details)
-            return cls.trading_details
-        except FileNotFoundError:
-            FileDatabase().write_activity_to_file()
-            logging.warning("No record present in file: Please add trade records!")
-            return cls.trading_details
-    
     @staticmethod
-    def load_stock_config_from_file(filename= stock_config_file):
+    def load_stock_metadata_from_file(filename: str = stock_config_file) -> List[str | float]:
+        """
+        loads metadata such as symbol, type, last dividend from a predefined path
+        """
         script_dir = os.path.dirname(os.path.abspath(__file__))
         config_file = os.path.join(script_dir, filename)
         if not os.path.isfile(config_file):
@@ -52,6 +43,33 @@ class FileDatabase:
             stock_details_list = stock_details_list[1:]
         stock_details_list = [[row[0],row[1],float(row[2]),float(row[3]),float(row[4])] for row in stock_details_list]
         return stock_details_list
+
+    @classmethod
+    def write_activity_to_localmem(cls, trade_details={}):
+        cls.trading_details = trade_details
+        try:
+            with db_conn:
+                cur = db_conn.cursor()
+                cur.execute("DELETE FROM data",)  # not necessary but prevents db from balooning into a monster
+                cur.execute("INSERT INTO data VALUES(?)", (sqlite3.Binary(pickle.dumps(cls.trading_details)),))
+                logging.info('trade activity now written to temp memory !')
+                return True
+        except Exception as why:
+            logging.error(why)
+            return False
+
+    @classmethod
+    def read_activity_from_localmem(cls):
+        try:
+            with db_conn:
+                cur = db_conn.cursor()
+                cur.execute("select i from data")
+                db_content = [pickle.loads(row[0]) for row in cur]
+                cls.trading_details = db_content[-1]  # final record contains the latest data
+                return cls.trading_details
+        except Exception as why:
+            logging.warning("No record present in local memory: Please add trade records!")
+            return cls.trading_details
 
 
 class StockService:
@@ -72,12 +90,11 @@ class StockService:
         stock_model_obj.set_par_value(par_value)
         cls.config_stocks_list[stock_symbol] = stock_model_obj
 
-    
     @staticmethod
     def volume_weighted_stock_price(symbol: str, interval_in_mins = 5) -> tuple[str, float]:
         try:
             # reading file data to collect all the trade records until now
-            trading_details = FileDatabase().read_activity_from_file()
+            trading_details = FileDatabase().read_activity_from_localmem()
             # filtering out the data, gives data for the stock symbol we need
             symbol_trade_details = trading_details[symbol]
 
@@ -127,7 +144,7 @@ class StockService:
                 logging.warning(ZDE)
                 return "Failure", 0
         else:
-            logging.warning("Stock is not present in Memory, please enter stock that's already in memory!")
+            logging.warning("Stock not located for Dividend calc, please enter stock that's already in activity/memory !")
             return "Failure", 0
     
     @classmethod
@@ -155,13 +172,16 @@ class TradeService:
 
     @staticmethod
     def record_trade(symbol, quantity, buy_or_sell, trade_price, timestamp=datetime.now()) -> str:
+        """
+        Writes trade activity to local memory
+        """
         if symbol not in StockService.config_stocks_list:
             logging.warning(f"Stock symbol {symbol} not present in index config file({stock_config_file}) provided!")
             return "Failure"
         try:
             # read from file/db
             file_obj = FileDatabase()
-            trading_details = file_obj.read_activity_from_file()
+            trading_details = file_obj.read_activity_from_localmem()
 
             trade_model_obj = TradeModel()
             trade_model_obj.set_quantity_shares(quantity)
@@ -173,7 +193,7 @@ class TradeService:
             trading_details[symbol][timestamp] = trade_model_obj
 
             # write to file/db
-            file_obj.write_activity_to_file(trading_details)
+            file_obj.write_activity_to_localmem(trading_details)
             return "Success"
 
         except Exception as Except:
@@ -187,8 +207,12 @@ class GBCEIndex:
     trading_details = {}
 
     @classmethod
-    def all_share_index(cls):
-        cls.trading_details = FileDatabase().read_activity_from_file()
+    def all_share_index(cls) -> float:
+        """
+        calculates a geometric mean of the Volume Weighted Stock Price for all stocks in the GBCE
+        note this V-W price is NOT for 5mins only, it's for the whole population!
+        """
+        cls.trading_details = FileDatabase().read_activity_from_localmem()
         if not cls.trading_details:
             logging.warning("Empty records, no trade done!")
             return None
@@ -200,7 +224,6 @@ class GBCEIndex:
                 total_stock_count += traded_share.get_quantity_shares()
                 total_price += (traded_share.get_quantity_shares() * traded_share.get_trade_price())
 
-        #note this WV price is NOT for 5mins only, it's for the whole population!
         gbce_all_share_index = pow(total_price, 1/total_stock_count) 
 
         return gbce_all_share_index

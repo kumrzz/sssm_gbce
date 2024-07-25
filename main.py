@@ -8,12 +8,13 @@ def input_operations():
     3. View/Check the output
     """
     # Populate DB
-    stock_details_list = FileDatabase.load_stock_config_from_file()
+    stock_details_list = FileDatabase.load_stock_metadata_from_file()
     for stock in stock_details_list:
         StockService().stock_config_operations(*stock)
     config_stocks_list = [row[0] for row in stock_details_list]
     for stock in stock_details_list:
             StockService().stock_config_operations(*stock)
+    print("Stock config/metadata populated from file")
 
     operations = """Select a number for corresponding operation:
                     1 for Calculating DIVIDEND yield.
@@ -39,6 +40,7 @@ def input_operations():
             operation_num = int(input(operations))
             # exit
             if operation_num == 0:
+                print("bye!")
                 break
             elif operation_num == 1:
                 print("You have selected to calculate Dividend yield!")
@@ -75,7 +77,7 @@ def input_operations():
                     continue
                 status = TradeService.record_trade(stock_symbol, stock_quantity, buy_or_sell, stock_price)
                 if status == success:
-                    print(f"The trade for {buy_or_sell} of {stock_symbol} is recorded.")
+                    print(f"The trade for {buy_or_sell} of {stock_symbol} has now been recorded.")
                 else:
                     print(re_enter)
 

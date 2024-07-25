@@ -10,7 +10,7 @@ This source code will -
     - calculate the dividend yield given any price as input
     - calculate the P/E Ratio given any price as input
     - record a trade, with timestamp, quantity of shares, buy or sell indicator and price
-    - Calculate Volume Weighted Stock Price based on trades in past  5 minutes
+    - calculate Volume Weighted Stock Price based on trades in past  5 minutes
 - Calculate the GBCE All Share Index using the geometric mean of prices for all stocks
 
 Constraints & Notes:
@@ -36,13 +36,9 @@ Setup:
 git clone https://github.com/kumrzz/sssm_gbce.git
 
 Run:
-Please ensure:
 1. gbce_sample_data.csv file contains data as specified in current gbce_sample_data.csv file,
     it is read and populates in-memory database/model for further operations.
-2. StocksDBFile.txt contains trade records, we operate on this while recording trade, calculating
-    volume weighted stock price and GBCE all share index. If this file is not present,
-    the code automatically handles it by creating one. The file is therefore OPTIONAL, NOT NECESSARY !!
-3. Ensure main.py is present (folder: sssm_gbce if using git clone as in the setup step) and then run as:
+2. Ensure main.py is present (folder: sssm_gbce if using git clone as in the setup step) and then run as:
 ```
 python main.py
 ```
@@ -66,6 +62,13 @@ To test the assignment using unittest, please execute test.py file as:
 ```
 python test.py
 ```
+
+Implementation Info:
+models.py contains blueprints
+services.py is the meat of the app, each class performs related functions
+main.py runs a CLI using above code
+test.py contains testcases grouped by class but for convenience, the run order is dictated by a setup block
+A full MVC approach is not necessary with Python(or ostensibly expected by the build spec), but the code is as modular as possible in order to fit into an existing setup.
 
 Developer:
 Kumar Ghosh
